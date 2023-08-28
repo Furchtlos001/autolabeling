@@ -1,29 +1,33 @@
 CLASS_NAMES: ['car', 'pedestrian', 'bicycle']
 
 DATA_CONFIG:
-    # _BASE_CONFIG_: cfgs/dataset_configs/hj_dataset.yaml
-    _BASE_CONFIG_: /home/gpu/zengshuai/VoxelNeXt-master/tools/cfgs/dataset_configs/hj_dataset.yaml
+    _BASE_CONFIG_: cfgs/dataset_configs/my_dataset.yaml
+    # _BASE_CONFIG_: /home/gpu/zengshuai/VoxelNeXt-master/tools/cfgs/dataset_configs/my_dataset.yaml
 
     DATA_AUGMENTOR:
         DISABLE_AUG_LIST: ['placeholder']
         AUG_CONFIG_LIST:
-            # - NAME: gt_sampling
-            #   USE_ROAD_PLANE: True
-            #   DB_INFO_PATH:
-            #       - kitti_dbinfos_train.pkl
-            #   PREPARE: {
-            #      filter_by_min_points: ['Car:5', 'Pedestrian:5', 'Cyclist:5'],
-            #      filter_by_difficulty: [-1],
-            #   }
+            - NAME: gt_sampling
+              USE_ROAD_PLANE: False # True
+              DB_INFO_PATH:
+                  - my_dbinfos_train.pkl
+              PREPARE: {
+                 # filter_by_min_points: ['Car:5', 'Pedestrian:5', 'Cyclist:5']
+                 filter_by_min_points: ['car:5', 'pedestrian:5', 'bicycle:5']
+                 
+                #  filter_by_difficulty: [-1],
+              }
 
-            #   SAMPLE_GROUPS: ['Car:15','Pedestrian:10', 'Cyclist:10']
-            #   NUM_POINT_FEATURES: 4
-            #   DATABASE_WITH_FAKELIDAR: False
-            #   REMOVE_EXTRA_WIDTH: [0.0, 0.0, 0.0]
-            #   LIMIT_WHOLE_SCENE: False
+              # SAMPLE_GROUPS: ['Car:15','Pedestrian:10', 'Cyclist:10']
+              SAMPLE_GROUPS: ['car:15','pedestrian:10', 'bicycle:10']
+            #   SAMPLE_GROUPS: ['car:15','pedestrian:10', 'bicycle:0']
+              NUM_POINT_FEATURES: 5 # 4 不然除不开，my_dataset里面就是五维的直接存了
+              DATABASE_WITH_FAKELIDAR: False
+              REMOVE_EXTRA_WIDTH: [0.0, 0.0, 0.0]
+              LIMIT_WHOLE_SCENE: False
 
-            # - NAME: random_world_flip
-            #   ALONG_AXIS_LIST: ['x']
+            - NAME: random_world_flip
+              ALONG_AXIS_LIST: ['x']
 
             - NAME: random_world_rotation
               WORLD_ROT_ANGLE: [-0.78539816, 0.78539816]
@@ -89,13 +93,13 @@ MODEL:
     POST_PROCESSING:
         RECALL_THRESH_LIST: [0.3, 0.5, 0.7]
 
-        EVAL_METRIC: kitti
+        EVAL_METRIC: my # kitti 原来是hj
 
 
 
 OPTIMIZATION:
-    BATCH_SIZE_PER_GPU: 4
-    NUM_EPOCHS: 80
+    BATCH_SIZE_PER_GPU: 12
+    NUM_EPOCHS: 100 # 80
 
     OPTIMIZER: adam_onecycle
     LR: 0.01
