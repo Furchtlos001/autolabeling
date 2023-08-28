@@ -1,25 +1,63 @@
 {
-    // Use IntelliSense to learn about possible attributes.
-    // Hover to view descriptions of existing attributes.
-    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Python: Current File",
+            "name": "Run demo",
             "type": "python",
             "request": "launch",
-            "program": "${file}",
+            "cwd": "/media/gpu/sde/tianxl/VoxelNeXt-master/tools",
+            "program": "demo.py",
             "console": "integratedTerminal",
             "justMyCode": true,
-            // "args": [
-            //     "-m",
-            //     "pcdet.datasets.hj.hj_dataset",
-            //     "create_hj_infos",
-            //     "tools/cfgs/dataset_configs/hj_dataset.yaml"
-            // ],
-            // "cwd": "/home/gpu/zengshuai/VoxelNeXt-master/pcdet/datasets/hj/",
-            "args": ["--cfg_file", "/home/gpu/zengshuai/VoxelNeXt-master/tools/cfgs/hj_models/voxelnext.yaml"]
-            
+            "args": [
+                "--cfg_file", "cfgs/my_models/voxelnext.yaml",
+                "--ckpt", "../output/08252007/ckpt/checkpoint_epoch_80.pth"
+            ]
+        },
+        {
+            "name": "Run train",
+            "type": "python",
+            "request": "launch",
+            "cwd": "/media/gpu/sde/tianxl/VoxelNeXt-master/tools",
+            "program": "train.py",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "args": [
+                "--cfg_file",
+                "cfgs/my_models/voxelnext.yaml",
+                "--batch_size",
+                "8"
+            ]
+        },
+        {
+            "name": "Run test",
+            "type": "python",
+            "request": "launch",
+            "cwd": "/media/gpu/sde/tianxl/VoxelNeXt-master/tools",
+            "program": "test.py",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "args": [
+                "--cfg_file",
+                "cfgs/my_models/voxelnext.yaml",
+                "--batch_size",
+                "8",
+                "--ckpt",
+                "../output/0821/ckpt/checkpoint_epoch_20.pth"
+            ]
+        },
+        {
+            "name": "Run my_dataset",
+            "type": "python",
+            "request": "launch",
+            "cwd": "/media/gpu/sde/tianxl/VoxelNeXt-master",
+            "program": "pcdet/datasets/my/my_dataset.py",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "args": [
+                "create_my_infos",
+                "tools/cfgs/dataset_configs/my_dataset.yaml"
+            ]
         }
     ]
 }
