@@ -1,5 +1,6 @@
 import numpy as np
-from ...utils import box_utils
+# from ...utils import box_utils
+from pcdet.utils import box_utils
 
 
 def transform_annotations_to_kitti_format(annos, map_name_to_kitti=None, info_with_fakelidar=False):

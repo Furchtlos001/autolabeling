@@ -5,7 +5,7 @@ import os
 import numpy as np
 from skimage import io
 # 原来
-# from . import my_utils
+# from . import hj_utils
 # from ...ops.roiaware_pool3d import roiaware_pool3d_utils
 # from ...utils import box_utils, calibration_kitti, common_utils, object3d_kitti
 # from ..dataset import DatasetTemplate
@@ -14,19 +14,15 @@ from skimage import io
 # from .hj_dataset_devkit import CoordinateSystem
 
 # debug
-from pcdet.datasets.my import my_utils
+from pcdet.datasets.hj import hj_utils
 from pcdet.ops.roiaware_pool3d import roiaware_pool3d_utils
 from pcdet.utils import box_utils, calibration_kitti, common_utils, object3d_kitti
 from pcdet.datasets.dataset import DatasetTemplate
 
-from pcdet.datasets.my.hj_dataset_devkit import SupportedDataset, load_dataset
-from pcdet.datasets.my.hj_dataset_devkit import CoordinateSystem
+from pcdet.datasets.hj.hj_dataset_devkit import SupportedDataset, load_dataset
+from pcdet.datasets.hj.hj_dataset_devkit import CoordinateSystem
 
-# import mayavi.mlab as mlab
-# from tools.visual_utils import visualize_utils as V
-# OPEN3D_FLAG = False
-
-class MyDataset(DatasetTemplate):
+class HjDataset(DatasetTemplate):
     def __init__(self, dataset_cfg, class_names, training=True, root_path=None, logger=None):
         """
         Args:
@@ -49,18 +45,18 @@ class MyDataset(DatasetTemplate):
         # self.root_split_path = os.path.join(self.root_path, 'training' if self.split != 'test' else 'testing')
         split_dir = self.root_path / 'ImageSets' / (self.split + '.txt')
         # split_dir = os.path.join(self.root_path, 'ImageSets', (self.split + '.txt'))
-        # split_dir = '/home/gpu/zengshuai/VoxelNeXt-master/pcdet/datasets/my/ImageSets/train.txt'
+        # split_dir = '/home/gpu/zengshuai/VoxelNeXt-master/pcdet/datasets/hj/ImageSets/train.txt'
         self.sample_id_list = [x.strip() for x in open(split_dir).readlines()] if split_dir.exists() else None
 
-        self.my_infos = []
-        self.include_my_data(self.mode)
+        self.hj_infos = []
+        self.include_hj_data(self.mode)
 
-    def include_my_data(self, mode):
+    def include_hj_data(self, mode):
         if self.logger is not None:
-            self.logger.info('Loading my dataset')
-        my_infos = []
+            self.logger.info('Loading HJ dataset')
+        hj_infos = []
         
-        for info_path in self.dataset_cfg.INFO_PATH[mode]:# my_infos_val.pkl
+        for info_path in self.dataset_cfg.INFO_PATH[mode]:# hj_infos_val.pkl
             info_path = self.root_path / info_path
             if not info_path.exists():
                 #如果该文件不存在，跳出，继续下一个文件
@@ -68,13 +64,13 @@ class MyDataset(DatasetTemplate):
             with open(info_path, 'rb') as f:
                 # pickle.load(f) 将该文件中的数据 解析为一个Python对象infos，并将该内容添加到kitti_infos 列表中
                 infos = pickle.load(f)
-                my_infos.extend(infos)
+                hj_infos.extend(infos)
 
-        self.my_infos.extend(my_infos)
+        self.hj_infos.extend(hj_infos)
 
         # 最后在日志信息中 添加数据集样本总个数
         if self.logger is not None:
-            self.logger.info('Total samples for my dataset: %d' % (len(my_infos)))
+            self.logger.info('Total samples for HJ dataset: %d' % (len(hj_infos)))
 
     def set_split(self, split):
         super().__init__(
@@ -192,11 +188,10 @@ class MyDataset(DatasetTemplate):
         print(dataset.scenes)
         scenes = dataset.scenes
         if self.logger is not None:
-            self.logger.info('Total samples for my %s dataset: %d' % (self.split, len(scenes)))
+            self.logger.info('Total samples for HJ %s dataset: %d' % (self.split, len(scenes)))
         def process_single_sequence(sample_idx):
             print('%s sample_idx: %s' % (self.split, sample_idx))
             frames = scenes[sample_idx].frames
-            # frames = scenes[4].frames
             infos = []
             for idx, frame in enumerate(frames):
                 # lidar_sensor = frame.lidars[-1]
@@ -209,28 +204,22 @@ class MyDataset(DatasetTemplate):
                 pc_info = {'num_features': 4, 'lidar_idx': frame_idx, 'sequence_idx':self.sample_id_list[sample_idx], 'lidar_sensor':lidar_sensor}
                 info['point_cloud'] = pc_info
                 #print(self.sample_id_list[sample_idx])
-                # PosixPath('/home/gpu/zengshuai/VoxelNeXt-master/data/my/training/2023_04_15_12_10_20_city/lidars/hesi_topc_0_raw/1681531820079530.bin')
+                # PosixPath('/home/gpu/zengshuai/VoxelNeXt-master/data/hj/training/2023_04_15_12_10_20_city/lidars/hesi_topc_0_raw/1681531820079530.bin')
                 lidar_file = self.root_split_path / ('%s' % self.sample_id_list[sample_idx]) /'lidars' / ('%s' % lidar_sensor) /('%s.bin' % frame_idx)
                 assert lidar_file.exists()
                 #info['calib'] = frame.calib
                 labels = frame.get_obstacles(CoordinateSystem.ego)
-                # if has_label and labels is not None:
-                if has_label and labels and np.array([obj.box.center.x for obj in labels]).all() is not None:
+                if has_label and labels is not None:
                     annotations = {}
                     annotations['name'] = np.array([obj.category.value for obj in labels])
                     annotations['center'] = np.array([[obj.box.center.x, obj.box.center.y, obj.box.center.z] for obj in labels])
-                    # 剔除Null
-                    # if annotations['center'][:,0].any() == None:
-                    #     continue
                     annotations['size'] = np.array([[obj.box.size.x, obj.box.size.y, obj.box.size.z] for obj in labels])
                     annotations['rotation_y'] = np.array([obj.box.rotation.z for obj in labels])
 
-                    # gt_boxes_lidar = np.concatenate([annotations['center'], annotations['size'], -(np.pi / 2 + annotations['rotation_y'][..., np.newaxis])], axis=1)
-                    gt_boxes_lidar = np.concatenate([annotations['center'], annotations['size'], annotations['rotation_y'][..., np.newaxis]], axis=1)
+                    gt_boxes_lidar = np.concatenate([annotations['center'], annotations['size'], -(np.pi / 2 + annotations['rotation_y'][..., np.newaxis])], axis=1)
                     annotations['gt_boxes_lidar'] = gt_boxes_lidar
                     annotations['num_points_in_gt'] = np.array([[obj.num_lidar_pts] for obj in labels])
                     info['annos'] = annotations
-
                 else:
                     continue
                     # 改动
@@ -266,7 +255,7 @@ class MyDataset(DatasetTemplate):
         import torch
 
         database_save_path = Path(self.root_path) / ('gt_database' if split == 'train' else ('gt_database_%s' % split))
-        db_info_save_path = Path(self.root_path) / ('my_dbinfos_%s.pkl' % split)
+        db_info_save_path = Path(self.root_path) / ('hj_dbinfos_%s.pkl' % split)
 
         database_save_path.mkdir(parents=True, exist_ok=True)
         all_db_infos = {}
@@ -299,7 +288,7 @@ class MyDataset(DatasetTemplate):
                 # 创建文件名，并设置保存路径，最后文件如：'2023_04_15_11_47_18_highway_car_0.bin'
                 # filename = '%s_%s_%d.bin' % (sample_idx, names[i], i)
                 filename = '%s_%s_%d_infos_%d.bin' % (sample_idx, names[i], i, k)
-                # /home/gpu/zengshuai/VoxelNeXt-master/data/my/gt_database/2023_04_15_12_10_20_city_car_11_infos_134.bin
+                # /home/gpu/zengshuai/VoxelNeXt-master/data/hj/gt_database/2023_04_15_12_10_20_city_car_11_infos_134.bin
                 filepath = database_save_path / filename
                 # print(gt_boxes[i, :].reshape(-1, 7))
                 # 返回每个box中的点云索引[0 0 0 1 0 1 1...]
@@ -435,22 +424,22 @@ class MyDataset(DatasetTemplate):
         return annos
 
     def evaluation(self, det_annos, class_names, **kwargs):
-        if 'annos' not in self.my_infos[0].keys():
+        if 'annos' not in self.hj_infos[0].keys():
             return None, {}
 
         from .kitti_object_eval_python import eval as kitti_eval
 
         eval_det_annos = copy.deepcopy(det_annos)
-        eval_gt_annos = [copy.deepcopy(info['annos']) for info in self.my_infos]
+        eval_gt_annos = [copy.deepcopy(info['annos']) for info in self.hj_infos]
         ap_result_str, ap_dict = kitti_eval.get_official_eval_result(eval_gt_annos, eval_det_annos, class_names)
 
         return ap_result_str, ap_dict
 
     def __len__(self):
         if self._merge_all_iters_to_one_epoch:
-            return len(self.my_infos) * self.total_epochs # my_infos即从.pkl中读取的信息
+            return len(self.hj_infos) * self.total_epochs # hj_infos即从.pkl中读取的信息
         # 等于返回训练帧的总个数，等于图片的总个数
-        return len(self.my_infos)
+        return len(self.hj_infos)
 
 
     def __getitem__(self, index):
@@ -474,9 +463,9 @@ class MyDataset(DatasetTemplate):
         '''
         # index = 4
         if self._merge_all_iters_to_one_epoch:
-            index = index % len(self.my_infos)
+            index = index % len(self.hj_infos)
 
-        info = copy.deepcopy(self.my_infos[index])
+        info = copy.deepcopy(self.hj_infos[index])
 
         sample_idx = info['point_cloud']['sequence_idx'] # '2023_04_15_12_10_20_city'
         frame_idx = info['point_cloud']['lidar_idx'] # 1681531833430014
@@ -514,61 +503,54 @@ class MyDataset(DatasetTemplate):
             input_dict['depth_maps'] = self.get_depth_map(sample_idx)
 
         if "calib_matricies" in get_item_list:
-            input_dict["trans_lidar_to_cam"], input_dict["trans_cam_to_img"] = my_utils.calib_to_matricies(calib)
+            input_dict["trans_lidar_to_cam"], input_dict["trans_cam_to_img"] = hj_utils.calib_to_matricies(calib)
 
         #input_dict['calib'] = calib
         data_dict = self.prepare_data(data_dict=input_dict)
-        
-        # V.draw_scenes(
-        #     points=data_dict['points'][:, 1:], gt_boxes=input_dict['gt_boxes'], ref_boxes=data_dict['gt_boxes']
-        # )
 
-        # if not OPEN3D_FLAG:
-        #     mlab.show(stop=True)
-            
         #data_dict['image_shape'] = img_shape
         return data_dict
 
 # 生成.pkl文件（对train/test/val均生成相应文件），提前读取点云格式、image格式、calib矩阵以及label
-def create_my_infos(dataset_cfg, class_names, data_path, save_path, workers=4):
-    dataset = MyDataset(dataset_cfg=dataset_cfg, class_names=class_names, root_path=data_path, training=False)
+def create_hj_infos(dataset_cfg, class_names, data_path, save_path, workers=4):
+    dataset = HjDataset(dataset_cfg=dataset_cfg, class_names=class_names, root_path=data_path, training=False)
     train_split, val_split = 'train', 'val'
 
-    train_filename = save_path / ('my_infos_%s.pkl' % train_split)
-    val_filename = save_path / ('my_infos_%s.pkl' % val_split)
-    trainval_filename = save_path / 'my_infos_trainval.pkl'
-    test_filename = save_path / 'my_infos_test.pkl'
+    train_filename = save_path / ('hj_infos_%s.pkl' % train_split)
+    val_filename = save_path / ('hj_infos_%s.pkl' % val_split)
+    trainval_filename = save_path / 'hj_infos_trainval.pkl'
+    test_filename = save_path / 'hj_infos_test.pkl'
     
     print('---------------Start to generate data infos---------------')
 
     dataset.set_split(train_split)
     # 执行完上一步，得到train相关的保存文件，以及sample_id_list的值为train.txt文件下的数字
     # 下面是得到train.txt中序列相关的所有点云数据的信息，并且进行保存
-    my_infos_train = dataset.get_infos(num_workers=workers, has_label=True, count_inside_pts=True)
-    print('Num of Train Infos: ',len(my_infos_train))
+    hj_infos_train = dataset.get_infos(num_workers=workers, has_label=True, count_inside_pts=True)
+    print('Num of Train Infos: ',len(hj_infos_train))
     with open(train_filename, 'wb') as f:
-        pickle.dump(my_infos_train, f)
-    print('my info train file is saved to %s' % train_filename)
+        pickle.dump(hj_infos_train, f)
+    print('Hj info train file is saved to %s' % train_filename)
 
     dataset.set_split(val_split)
-    my_infos_val = dataset.get_infos(num_workers=workers, has_label=True, count_inside_pts=True)
-    print('Num of val Infos: ',len(my_infos_val))
+    hj_infos_val = dataset.get_infos(num_workers=workers, has_label=True, count_inside_pts=True)
+    print('Num of val Infos: ',len(hj_infos_val))
     with open(val_filename, 'wb') as f:
-        pickle.dump(my_infos_val, f)
-    print('my info val file is saved to %s' % val_filename)
+        pickle.dump(hj_infos_val, f)
+    print('Hj info val file is saved to %s' % val_filename)
     
     # 把训练集和验证集的信息 合并写到一个文件里
-    print('Num of val Infos: ',len(my_infos_train) + len(my_infos_val))
+    print('Num of val Infos: ',len(hj_infos_train) + len(hj_infos_val))
     with open(trainval_filename, 'wb') as f:
-        pickle.dump(my_infos_train + my_infos_val, f)
-    print('my info trainval file is saved to %s' % trainval_filename)
+        pickle.dump(hj_infos_train + hj_infos_val, f)
+    print('Hj info trainval file is saved to %s' % trainval_filename)
 
     # dataset.set_split('test')
-    # my_infos_test = dataset.get_infos(num_workers=workers, has_label=False, count_inside_pts=False)
-    # print('Num of test Infos: ',len(my_infos_test))
+    # hj_infos_test = dataset.get_infos(num_workers=workers, has_label=False, count_inside_pts=False)
+    # print('Num of test Infos: ',len(hj_infos_test))
     # with open(test_filename, 'wb') as f:
-    #     pickle.dump(my_infos_test, f)
-    # print('my info test file is saved to %s' % test_filename)
+    #     pickle.dump(hj_infos_test, f)
+    # print('Hj info test file is saved to %s' % test_filename)
     
 
     # 有问题需要改
@@ -581,15 +563,15 @@ def create_my_infos(dataset_cfg, class_names, data_path, save_path, workers=4):
 
 if __name__ == '__main__':
     import sys
-    if sys.argv.__len__() > 1 and sys.argv[1] == 'create_my_infos':
+    if sys.argv.__len__() > 1 and sys.argv[1] == 'create_hj_infos':
         import yaml
         from pathlib import Path
         from easydict import EasyDict
         dataset_cfg = EasyDict(yaml.safe_load(open(sys.argv[2])))
         ROOT_DIR = (Path(__file__).resolve().parent / '../../../').resolve()
-        create_my_infos(
+        create_hj_infos(
             dataset_cfg=dataset_cfg,
             class_names=['Car', 'Pedestrian', 'Cyclist'],
-            data_path=ROOT_DIR / 'data' / 'my',
-            save_path=ROOT_DIR / 'data' / 'my'
+            data_path=ROOT_DIR / 'data' / 'hj',
+            save_path=ROOT_DIR / 'data' / 'hj'
         )

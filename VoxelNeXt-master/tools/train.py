@@ -20,7 +20,7 @@ from train_utils.train_utils import train_model
 
 def parse_config():
     parser = argparse.ArgumentParser(description='arg parser')
-    parser.add_argument('--cfg_file', type=str, default=None, help='specify the config for training')
+    parser.add_argument('--cfg_file', type=str, default='cfgs/my_models/voxelnext.yaml', help='specify the config for training')
 
     parser.add_argument('--batch_size', type=int, default=None, required=False, help='batch size for training')
     parser.add_argument('--epochs', type=int, default=None, required=False, help='number of epochs to train for')
@@ -32,7 +32,7 @@ def parse_config():
     parser.add_argument('--tcp_port', type=int, default=18888, help='tcp port for distrbuted training')
     parser.add_argument('--sync_bn', action='store_true', default=False, help='whether to use sync bn')
     parser.add_argument('--fix_random_seed', action='store_true', default=False, help='')
-    parser.add_argument('--ckpt_save_interval', type=int, default=1, help='number of training epochs')
+    parser.add_argument('--ckpt_save_interval', type=int, default=10, help='number of training epochs')
     parser.add_argument('--local_rank', type=int, default=0, help='local rank for distributed training')
     parser.add_argument('--max_ckpt_save_num', type=int, default=30, help='max number of saved checkpoint')
     parser.add_argument('--merge_all_iters_to_one_epoch', action='store_true', default=False, help='')
@@ -54,8 +54,8 @@ def parse_config():
     args = parser.parse_args()
 
     cfg_from_yaml_file(args.cfg_file, cfg)
-    cfg.TAG = Path(args.cfg_file).stem
-    cfg.EXP_GROUP_PATH = '/'.join(args.cfg_file.split('/')[1:-1])  # remove 'cfgs' and 'xxxx.yaml'
+    cfg.TAG = Path(args.cfg_file).stem # 'voxelnext'
+    cfg.EXP_GROUP_PATH = '/'.join(args.cfg_file.split('/')[1:-1])  # remove 'cfgs' and 'xxxx.yaml'，得到'my_models'
     
     args.use_amp = args.use_amp or cfg.OPTIMIZATION.get('USE_AMP', False)
 
@@ -88,7 +88,9 @@ def main():
     if args.fix_random_seed:
         common_utils.set_random_seed(666 + cfg.LOCAL_RANK)
 
-    output_dir = cfg.ROOT_DIR / 'output' / cfg.EXP_GROUP_PATH / cfg.TAG / args.extra_tag
+    # output_dir = cfg.ROOT_DIR / 'output' / cfg.EXP_GROUP_PATH / cfg.TAG / args.extra_tag
+    # output_dir = cfg.ROOT_DIR / 'output' / cfg.EXP_GROUP_PATH / cfg.TAG
+    output_dir = cfg.ROOT_DIR / 'output' / '0914_whole'
     ckpt_dir = output_dir / 'ckpt'
     output_dir.mkdir(parents=True, exist_ok=True)
     ckpt_dir.mkdir(parents=True, exist_ok=True)
@@ -144,6 +146,8 @@ def main():
         it, start_epoch = model.load_params_with_optimizer(args.ckpt, to_cpu=dist_train, optimizer=optimizer, logger=logger)
         last_epoch = start_epoch + 1
     else:
+        # 如果没有写权重位置，也会取权重文件夹，查找是否存在之前训练的权重
+        # 如果存在，则加载最后一次的权重文件
         ckpt_list = glob.glob(str(ckpt_dir / '*.pth'))
               
         if len(ckpt_list) > 0:
@@ -157,7 +161,6 @@ def main():
                     break
                 except:
                     ckpt_list = ckpt_list[:-1]
-
     model.train()  # before wrap to DistributedDataParallel to support fixed some parameters
     if dist_train:
         model = nn.parallel.DistributedDataParallel(model, device_ids=[cfg.LOCAL_RANK % torch.cuda.device_count()])
@@ -168,16 +171,17 @@ def main():
         optimizer, total_iters_each_epoch=len(train_loader), total_epochs=args.epochs,
         last_epoch=last_epoch, optim_cfg=cfg.OPTIMIZATION
     )
-
+    
+    # 上面都是初始化参数配置
     # -----------------------start training---------------------------
     logger.info('**********************Start training %s/%s(%s)**********************'
                 % (cfg.EXP_GROUP_PATH, cfg.TAG, args.extra_tag))
-
+    # 调用train_utils中的train_model函数
     train_model(
         model,
         optimizer,
         train_loader,
-        model_func=model_fn_decorator(),
+        model_func=model_fn_decorator(), # 返回损失 loss, tb_dict, disp_dict
         lr_scheduler=lr_scheduler,
         optim_cfg=cfg.OPTIMIZATION,
         start_epoch=start_epoch,
@@ -207,21 +211,21 @@ def main():
 
     logger.info('**********************Start evaluation %s/%s(%s)**********************' %
                 (cfg.EXP_GROUP_PATH, cfg.TAG, args.extra_tag))
-    test_set, test_loader, sampler = build_dataloader(
-        dataset_cfg=cfg.DATA_CONFIG,
-        class_names=cfg.CLASS_NAMES,
-        batch_size=args.batch_size,
-        dist=dist_train, workers=args.workers, logger=logger, training=False
-    )
-    eval_output_dir = output_dir / 'eval' / 'eval_with_train'
-    eval_output_dir.mkdir(parents=True, exist_ok=True)
-    args.start_epoch = max(args.epochs - args.num_epochs_to_eval, 0)  # Only evaluate the last args.num_epochs_to_eval epochs
+    # test_set, test_loader, sampler = build_dataloader(
+    #     dataset_cfg=cfg.DATA_CONFIG,
+    #     class_names=cfg.CLASS_NAMES,
+    #     batch_size=args.batch_size,
+    #     dist=dist_train, workers=args.workers, logger=logger, training=False
+    # )
+    # eval_output_dir = output_dir / 'eval' / 'eval_with_train'
+    # eval_output_dir.mkdir(parents=True, exist_ok=True)
+    # args.start_epoch = max(args.epochs - args.num_epochs_to_eval, 0)  # Only evaluate the last args.num_epochs_to_eval epochs
 
-    repeat_eval_ckpt(
-        model.module if dist_train else model,
-        test_loader, args, eval_output_dir, logger, ckpt_dir,
-        dist_test=dist_train
-    )
+    # repeat_eval_ckpt(
+    #     model.module if dist_train else model,
+    #     test_loader, args, eval_output_dir, logger, ckpt_dir,
+    #     dist_test=dist_train
+    # )
     logger.info('**********************End evaluation %s/%s(%s)**********************' %
                 (cfg.EXP_GROUP_PATH, cfg.TAG, args.extra_tag))
 
